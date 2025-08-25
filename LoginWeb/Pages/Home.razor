@@ -1,7 +1,87 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+@using LoginWeb.Models
+@using System.Text.Json
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject Services.FingerprintService FingerprintService
 
-<h1>Hello, world!</h1>
+<div class="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-100 to-blue-300">
+    <div class="w-full max-w-md rounded-lg bg-white p-8 shadow-lg">
+        <h2 class="mb-6 text-center text-3xl font-bold text-blue-700">Entrar na Conta</h2>
 
-Welcome to your new app.
+        @if (!string.IsNullOrEmpty(mensagemErro))
+        {
+            <div class="mb-4 rounded-lg border border-red-400 bg-red-100 px-4 py-3 text-red-700">
+                @mensagemErro
+            </div>
+        }
+
+        <EditForm Model="@login" OnValidSubmit="LoginUser">
+            <DataAnnotationsValidator />
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Email</label>
+                <InputText @bind-Value="login.Email"
+                           placeholder="Digite seu email"
+                           class="w-full rounded-lg border px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700">Senha</label>
+                <InputText @bind-Value="login.Password"
+                           type="password"
+                           placeholder="Digite sua senha"
+                           class="w-full rounded-lg border px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+
+            <button type="submit" class="w-full rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700">
+                Entrar
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+	private LoginModel login = new LoginModel();
+    private string mensagemErro = "";
+
+    private async Task LoginUser()
+    {
+        mensagemErro = "";
+        try
+        {
+            // 🔹 Pega o fingerprint
+            var fingerprint = await FingerprintService.GetFingerprintAsync();
+
+            // 🔹 Monta a requisição
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login")
+                {
+                    Content = JsonContent.Create(login)
+                };
+
+            // Adiciona o fingerprint no cabeçalho
+            request.Headers.Add("X-Client-Fingerprint", fingerprint);
+            request.SetBrowserRequestCredentials(BrowserRequestCredentials.Include);
+
+            // 🔹 Envia para a API
+            var response = await Http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/dashboard");
+            }
+            else
+            {
+                var erro = await response.Content.ReadAsStringAsync();
+                mensagemErro = $"Erro no login: {erro}";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensagemErro = $"Erro: {ex.Message}";
+        }
+    }
+
+
+}

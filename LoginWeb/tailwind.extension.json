@@ -3,7 +3,7 @@
   "BuildFiles": [
     {
       "Input": "tailwind.css",
-      "Output": "",
+      "Output": "wwwroot\\css\\app.css",
       "Behavior": "Default"
     }
   ],
