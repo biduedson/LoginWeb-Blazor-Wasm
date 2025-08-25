@@ -1,7 +1,135 @@
 ﻿@page "/dashboard"
-<h1 class="mt-10 text-center text-3xl font-bold">Dashboard</h1>
-<p class="mt-4 text-center">Bem-vindo ao CoreReserve Dashboard!</p>
+@using LoginWeb.Models
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.WebAssembly.Http
+@inject HttpClient Http
+
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-6">
+    <div class="mx-auto max-w-6xl">
+        <!-- Header -->
+        <div class="mb-10 text-center">
+            <h1 class="text-4xl font-extrabold text-blue-700">Dashboard</h1>
+            <p class="mt-2 text-lg text-gray-600">
+                Gerenciamento de sessões ativas no CoreReserve
+            </p>
+        </div>
+
+        <!-- Card -->
+        <div class="rounded-2xl bg-white p-6 shadow-lg">
+            <h2 class="mb-4 text-2xl font-semibold text-blue-600">📊 Sessões</h2>
+
+            @if (sessions == null)
+            {
+                <div class="py-10 text-center">
+                    <span class="text-gray-500">Carregando sessões...</span>
+                </div>
+            }
+            else if (sessions.Count == 0)
+            {
+                <div class="py-10 text-center">
+                    <span class="text-gray-500">Nenhuma sessão encontrada.</span>
+                </div>
+            }
+            else
+            {
+                <div class="overflow-x-auto">
+                    <table class="min-w-full table-auto border-collapse">
+                        <thead>
+                            <tr class="bg-blue-600 text-left text-white">
+                                <th class="rounded-tl-lg px-6 py-3">ID</th>
+                                <th class="px-6 py-3">Usuário</th>
+                                <th class="px-6 py-3">Expira em</th>
+                                <th class="px-6 py-3">Status</th>
+                                <th class="rounded-tr-lg px-6 py-3">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            @foreach (var session in sessions)
+                            {
+                                <tr class="transition hover:bg-blue-50">
+                                    <td class="px-6 py-4 font-mono text-sm text-gray-700">@session.Id</td>
+                                    <td class="px-6 py-4 text-gray-800">@session.UserId</td>
+                                    <td class="px-6 py-4 text-gray-600">@session.ExpiresAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td class="px-6 py-4">
+                                        @if (session.IsActive)
+                                        {
+                                            <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">Ativa</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">Expirada</span>
+                                        }
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <button class="rounded-lg bg-blue-500 px-3 py-1 text-sm text-white transition hover:bg-blue-600">
+                                            Encerrar
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="mt-4 rounded-lg bg-red-100 p-4">
+                    <p class="text-red-700">❌ @errorMessage</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
 
 @code {
+    private List<SessionModel> sessions = new();
+    private bool isLoading = true;
+    private string? errorMessage;
 
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // 🔥 A ÚNICA MUDANÇA: Criar HttpRequestMessage com cookies
+            var request = new HttpRequestMessage(HttpMethod.Get, "/api/account/sessions");
+
+            // ✅ ESSENCIAL: Esta linha faz os cookies serem enviados
+            request.SetBrowserRequestCredentials(BrowserRequestCredentials.Include);
+
+            // Usar SendAsync ao invés de GetAsync
+            var response = await Http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+
+                var resultado = JsonSerializer.Deserialize<Response>(json, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                if (resultado != null && resultado.Success)
+                {
+                    sessions = resultado.Result;
+                }
+                else
+                {
+                    errorMessage = "Resposta inválida da API.";
+                }
+            }
+            else
+            {
+                errorMessage = $"Erro {response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
 }
